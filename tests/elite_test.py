@@ -67,6 +67,28 @@ class TestElite_Input:
         assert inp_NBI.other_data["SI70"].lines[0].rstrip() == "SI70 L 435001"
         assert inp_NBI.other_data["SP70"].lines[0].rstrip() == "SP70 2"
 
+        outfile = os.path.join(os.path.dirname(outfile), "sector8.i")
+        inp.extract_sector(
+            8,
+            excel_file=resources_elite.joinpath(excel_name),
+            outfile=outfile,
+            tol=tol,
+            check_Elite=False,
+        )
+
+        inp_secs8 = Input.from_input(outfile)
+
+        assert ") 483024 ) 483016" in inp_secs8.cells["800"].lines[1]
+        assert ") :-483024 ) :-483016" in inp_secs8.cells["801"].lines[17]
+        pbc_surfs = ["*23", "*22", "*483024", "*483016"]
+        assert set(pbc_surfs).issubset(set(inp_secs8.surfs.keys()))
+        assert inp_secs8.surfs["*22"].scoefs[3] == inp.surfs["22"].scoefs[3]
+        assert inp_secs8.surfs["*23"].scoefs[3] == inp.surfs["23"].scoefs[3]
+        assert inp_secs8.surfs["110"].scoefs[3] == 2 * tol
+        assert inp_secs8.surfs["105"].scoefs[3] == -2 * tol
+        assert inp_secs8.other_data["SI70"].lines[0].rstrip() == "SI70 L 483001"
+        assert inp_secs8.other_data["SP70"].lines[0].rstrip() == "SP70 1"
+
         outfile = os.path.join(os.path.dirname(outfile), "sectors6_7.i")
 
         inp.extract_sector(
@@ -76,7 +98,6 @@ class TestElite_Input:
             tol=tol,
             check_Elite=False,
         )
-
         inp_secs6_7 = Input.from_input(outfile)
 
         assert ") 467024 ) 475016" in inp_secs6_7.cells["800"].lines[1]
@@ -87,12 +108,34 @@ class TestElite_Input:
         assert set(pbc_surfs).issubset(set(inp_secs6_7.surfs.keys()))
         assert inp_secs6_7.surfs["*20"].scoefs[3] == inp.surfs["20"].scoefs[3]
         assert inp_secs6_7.surfs["*22"].scoefs[3] == inp.surfs["22"].scoefs[3]
-        assert inp_secs6_7.surfs["110"].scoefs[3] == inp.surfs["110"].scoefs[3]
-        assert inp_secs6_7.surfs["105"].scoefs[3] == inp.surfs["105"].scoefs[3]
+        assert inp_secs6_7.surfs["110"].scoefs[3] == 2 * tol
+        assert inp_secs6_7.surfs["105"].scoefs[3] == -2 * tol
         assert (
             inp_secs6_7.other_data["SI70"].lines[0].rstrip() == "SI70 L 467001 475001"
         )
         assert inp_secs6_7.other_data["SP70"].lines[0].rstrip() == "SP70 1 1"
+
+        outfile = os.path.join(os.path.dirname(outfile), "sector9.i")
+        inp.extract_sector(
+            9,
+            excel_file=resources_elite.joinpath(excel_name),
+            outfile=outfile,
+            tol=tol,
+            check_Elite=False,
+        )
+
+        inp_secs9 = Input.from_input(outfile)
+
+        assert ") 491024 ) 491016" in inp_secs9.cells["800"].lines[1]
+        assert ") :-491024 ) :-491016" in inp_secs9.cells["801"].lines[17]
+        pbc_surfs = ["*23", "*8", "*491024", "*491016"]
+        assert set(pbc_surfs).issubset(set(inp_secs9.surfs.keys()))
+        assert inp_secs9.surfs["*8"].scoefs[3] == inp.surfs["8"].scoefs[3]
+        assert inp_secs9.surfs["*23"].scoefs[3] == inp.surfs["23"].scoefs[3]
+        assert inp_secs9.surfs["200"].scoefs[0] == -2 * tol
+        assert inp_secs9.surfs["210"].scoefs[3] == -2 * tol
+        assert inp_secs9.other_data["SI70"].lines[0].rstrip() == "SI70 L 491001"
+        assert inp_secs9.other_data["SP70"].lines[0].rstrip() == "SP70 1"
 
     def test_set_sdef(self):
         inp = deepcopy(self.testInput)

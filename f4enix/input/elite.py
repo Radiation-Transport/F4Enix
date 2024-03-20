@@ -1,10 +1,10 @@
 import os
 import math
-import copy
 import logging
 import pandas as pd
 import numpy as np
 
+from copy import deepcopy
 from numjuggler.parser import Card
 from f4enix.input.MCNPinput import Input
 from f4enix.constants import (
@@ -163,10 +163,10 @@ class Elite_Input(Input):
             cells, None, True, True
         )
         # copy the surfaces, because they will be modified
-        modified_surfaces = copy.deepcopy(surf_dic)
+        modified_surfaces = deepcopy(surf_dic)
 
         # Also tallies and other data
-        modified_data_cards = copy.deepcopy(self.other_data)
+        modified_data_cards = deepcopy(self.other_data)
         # pattern_str = '|'.join(self.tally_cards_types)
         # pattern = re.compile(f'^({pattern_str})\d+$')
         # # for now remove all tally cards
@@ -185,9 +185,10 @@ class Elite_Input(Input):
         Elite_Input._set_boundaries(
             Elite_Input._get_boundaries_angles(sectors),
             tol,
-            L0_sset,
             modified_surfaces,
             self.transformations,
+            L0_cells,
+            cells_cards,
         )
         # modify graveyard and outercell
         new_outercell, new_gy = Elite_Input._modify_graveyard(
@@ -228,7 +229,12 @@ class Elite_Input(Input):
 
     @staticmethod
     def _set_boundaries(
-        boundaries_angles, tol, L0_sset, modified_surfaces, transformations
+        boundaries_angles,
+        tol,
+        modified_surfaces,
+        transformations,
+        L0_cells,
+        cells_cards,
     ):
         # define the angles at which there are the planes cutting the sectors
         boundary_angles = []
@@ -239,53 +245,122 @@ class Elite_Input(Input):
                 rev_angle = angle + 180
             boundary_angles.append(angle)
             boundary_angles.append(rev_angle)
-
-        for l, angle in enumerate(boundary_angles):
-            coeffs = np.array(
-                [-math.sin(math.radians(angle)), math.cos(math.radians(angle)), 0]
-            )
-            # Check all surfaces for each angle
-            for surf in modified_surfaces.values():
-                # check if the surface belongs to L0 or L1 of the sector(s)
-                if surf.values[0][0] in L0_sset:
-                    bound_opt = 1
-                else:
-                    bound_opt = 2
-                # check if the surface is a plane
-                if surf.stype in ["p", "px", "py", "pz"]:
-                    if surf.stype == "p":
-                        p_coeffs = np.array(surf.scoefs[:3])
-                        d = surf.scoefs[3]
-                    elif surf.stype == "px":
-                        p_coeffs = np.array([1, 0, 0])
-                        d = surf.scoefs[0]
-                    elif surf.stype == "py":
-                        p_coeffs = np.array([0, 1, 0])
-                        d = surf.scoefs[0]
-                    elif surf.stype == "pz":
-                        p_coeffs = np.array([0, 0, 1])
-                        d = surf.scoefs[0]
-                    p_coeffs = p_coeffs / np.linalg.norm(p_coeffs)
-                    # check if the surface is a plane passing by the origin
-                    if Elite_Input._check_tol(tol, [(d, 0)]):
-                        # check if the plane has a transformation
+        # check each level 0 surface only once
+        L0_surf_checked = set()
+        # loop over level 0 cells
+        for cell_num in L0_cells:
+            cell = cells_cards[str(cell_num)]
+            for k, (v, t) in enumerate(cell.values):
+                # loop over level 0 cells' surfaces
+                if t == "sur":
+                    if v in L0_surf_checked:
+                        continue
+                    else:
+                        # check for transformation card applied to the surface
+                        # assumption: L1 and below don't have surfaces with transformations
+                        surf = modified_surfaces[str(v)]
                         try:
-                            # if so, apply it and check if it's a plane parallel to
-                            # the boundary
+                            # if so, apply the tranformation
                             tr = surf._get_value_by_type("tr")
                             tr_name = "TR" + str(tr)
                             trans = transformations[tr_name]
-                            # check if it's only a translation
-                            if len(trans.values) < 12:
-                                continue
-                            # if it's a rotation, rotate the coefficients
-                            p_coeffs = Elite_Input._rotate_plane(trans, p_coeffs)
-                        # if not, just check if it's parallel to the boundary
                         except UnboundLocalError:
-                            pass
-                        # if the plane is similar to boundary planes, modify it
-                        if Elite_Input._check_tol(tol, list(zip(p_coeffs, coeffs))):
-                            Elite_Input._modify_boundary(surf, bound_opt, angle, l, tol)
+                            trans = None
+                        # check if the surface should be set to reflective
+                        Elite_Input._check_planes(
+                            surf, 1, tol, trans, boundary_angles, False
+                        )
+                        L0_surf_checked.add(v)
+                # check if cell is an envelope container
+                if t == "fill":
+                    # get filler universe number
+                    uni = v
+                    # get fill transformation
+                    fill_trans = False
+                    try:
+                        if cell.values[k + 1][0] == "(":
+                            dummy_trans = deepcopy(transformations["TR1"])
+                            if cell.values[k + 3][0] == ")":
+                                dummy_trans = transformations[
+                                    "TR" + str(cell.values[k + 2][0])
+                                ]
+                            else:
+                                for m in range(13):
+                                    if cell.values[k + 2 + m][0] == ")":
+                                        break
+                                    dummy_trans.values[1 + m] = (
+                                        float(cell.values[k + 2 + m][0]),
+                                        "float",
+                                    )
+                            fill_trans = True
+                        else:
+                            dummy_trans = None
+                    except IndexError:
+                        dummy_trans = None
+                    # for each filler universe, check the surfaces only once
+                    surfs_checked = set()
+                    # loop over the cells of the universe
+                    for cell_uni in cells_cards.values():
+                        if cell_uni.get_u() == uni:
+                            # loop over the surfaces of the cell
+                            for v1, t1 in cell_uni.values:
+                                if t1 == "sur":
+                                    if v1 not in surfs_checked:
+                                        surfs_checked.add(v1)
+                                        sur = modified_surfaces[str(v1)]
+                                        # check if the surfaces hould be translated
+                                        Elite_Input._check_planes(
+                                            sur,
+                                            2,
+                                            tol,
+                                            dummy_trans,
+                                            boundary_angles,
+                                            fill_trans,
+                                        )
+
+    @staticmethod
+    def _check_planes(surf, bound_opt, tol, trans, boundary_angles, fill_trans):
+        if surf.stype in ["p", "px", "py", "pz"]:
+            if surf.stype == "p":
+                p_coeffs = np.array(surf.scoefs[:3])
+                d = surf.scoefs[3]
+            elif surf.stype == "px":
+                p_coeffs = np.array([1, 0, 0])
+                d = surf.scoefs[0]
+            elif surf.stype == "py":
+                p_coeffs = np.array([0, 1, 0])
+                d = surf.scoefs[0]
+            elif surf.stype == "pz":
+                p_coeffs = np.array([0, 0, 1])
+                d = surf.scoefs[0]
+            p_coeffs = p_coeffs / np.linalg.norm(p_coeffs)
+            orig_coeffs = p_coeffs
+            # check if the surface is a plane passing by the origin
+            if Elite_Input._check_tol(tol, [(d, 0)]):
+                # check if the plane has a transformation
+                if trans is not None:
+                    # if so, apply it and check if it's a plane parallel to
+                    # the boundary
+                    # check if it's only a translation, if it's a rotation, rotate the coefficients
+                    if len(trans.values) > 12:
+                        p_coeffs = Elite_Input._rotate_plane(trans, p_coeffs)
+                # if not, just check if it's parallel to the boundary
+
+                # if the plane is similar to boundary planes, modify it
+                for l, angle in enumerate(boundary_angles):
+                    coeffs = np.array(
+                        [
+                            -math.sin(math.radians(angle)),
+                            math.cos(math.radians(angle)),
+                            0,
+                        ]
+                    )
+                    if Elite_Input._check_tol(tol, list(zip(p_coeffs, coeffs))):
+                        if fill_trans:
+                            ang = math.atan(orig_coeffs[1] / orig_coeffs[0])
+                        else:
+                            ang = angle
+                        Elite_Input._modify_boundary(surf, bound_opt, ang, l, tol)
 
     @staticmethod
     def _get_boundaries_angles(sectors):
@@ -394,9 +469,15 @@ class Elite_Input(Input):
             # check in which quadrant the plane is
             angle_quadr = not (90 < angle < 270 or -270 < angle < -90)
             # check the sign of the y coefficient of the plane
-            y_coeff = surf.scoefs[1] > 0
+            if surf.stype == "p":
+                y_coeff = surf.scoefs[1] > 0
+                sign = tol_sign[y_plus] * tol_sign[angle_quadr] * tol_sign[y_coeff]
+            elif surf.stype == "px":
+                # translate the plane and recompute template and input
+                sign = -1 * tol_sign[y_plus]
+            elif surf.stype == "py":
+                sign = tol_sign[y_plus]
             # translate the plane and recompute template and input
-            sign = tol_sign[y_plus] * tol_sign[angle_quadr] * tol_sign[y_coeff]
             words[-1] = "{:.8f}".format(float(words[-1]) + sign * 2 * tol)
             surf.lines = [" ".join(words) + "\n"]
             surf.get_input()
