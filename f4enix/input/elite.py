@@ -357,7 +357,10 @@ class Elite_Input(Input):
                     )
                     if Elite_Input._check_tol(tol, list(zip(p_coeffs, coeffs))):
                         if fill_trans:
-                            ang = math.atan(orig_coeffs[1] / orig_coeffs[0])
+                            if orig_coeffs[0] != 0:
+                                ang = math.atan(orig_coeffs[1] / orig_coeffs[0])
+                            else:
+                                ang = 90
                         else:
                             ang = angle
                         Elite_Input._modify_boundary(surf, bound_opt, ang, l, tol)
@@ -467,9 +470,9 @@ class Elite_Input(Input):
             # check if y+ or y- boundary
             y_plus = l > 1
             # check in which quadrant the plane is
-            angle_quadr = not (90 < angle < 270 or -270 < angle < -90)
             # check the sign of the y coefficient of the plane
             if surf.stype == "p":
+                angle_quadr = not (90 < angle < 270 or -270 < angle < -90)
                 y_coeff = surf.scoefs[1] > 0
                 sign = tol_sign[y_plus] * tol_sign[angle_quadr] * tol_sign[y_coeff]
             elif surf.stype == "px":
