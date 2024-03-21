@@ -80,7 +80,7 @@ class TestElite_Input:
 
         assert ") 483024 ) 483016" in inp_secs8.cells["800"].lines[1]
         assert ") :-483024 ) :-483016" in inp_secs8.cells["801"].lines[17]
-        pbc_surfs = ["*23", "*22", "*483024", "*483016"]
+        pbc_surfs = ["*23", "*22", "*483024", "*483016", "13183", "289083"]
         assert set(pbc_surfs).issubset(set(inp_secs8.surfs.keys()))
         assert inp_secs8.surfs["*22"].scoefs[3] == inp.surfs["22"].scoefs[3]
         assert inp_secs8.surfs["*23"].scoefs[3] == inp.surfs["23"].scoefs[3]
@@ -88,6 +88,8 @@ class TestElite_Input:
         assert inp_secs8.surfs["105"].scoefs[3] == -2 * tol
         assert inp_secs8.other_data["SI70"].lines[0].rstrip() == "SI70 L 483001"
         assert inp_secs8.other_data["SP70"].lines[0].rstrip() == "SP70 1"
+        assert inp_secs8.surfs["13183"].scoefs[3] == -2 * tol
+        assert inp_secs8.surfs["289083"].scoefs[3] == 2 * tol
 
         outfile = os.path.join(os.path.dirname(outfile), "sectors6_7.i")
 
@@ -128,7 +130,7 @@ class TestElite_Input:
 
         assert ") 491024 ) 491016" in inp_secs9.cells["800"].lines[1]
         assert ") :-491024 ) :-491016" in inp_secs9.cells["801"].lines[17]
-        pbc_surfs = ["*23", "*8", "*491024", "*491016"]
+        pbc_surfs = ["*23", "*8", "*491024", "*491016", "13183", "289083"]
         assert set(pbc_surfs).issubset(set(inp_secs9.surfs.keys()))
         assert inp_secs9.surfs["*8"].scoefs[3] == inp.surfs["8"].scoefs[3]
         assert inp_secs9.surfs["*23"].scoefs[3] == inp.surfs["23"].scoefs[3]
@@ -136,6 +138,8 @@ class TestElite_Input:
         assert inp_secs9.surfs["210"].scoefs[3] == -2 * tol
         assert inp_secs9.other_data["SI70"].lines[0].rstrip() == "SI70 L 491001"
         assert inp_secs9.other_data["SP70"].lines[0].rstrip() == "SP70 1"
+        assert inp_secs9.surfs["13183"].scoefs[3] == 0
+        assert inp_secs9.surfs["289083"].scoefs[3] == -2 * tol
 
     def test_set_sdef(self):
         inp = deepcopy(self.testInput)

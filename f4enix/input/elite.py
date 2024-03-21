@@ -247,6 +247,7 @@ class Elite_Input(Input):
             boundary_angles.append(rev_angle)
         # check each level 0 surface only once
         L0_surf_checked = set()
+        surfs_modified = set()
         # loop over level 0 cells
         for cell_num in L0_cells:
             cell = cells_cards[str(cell_num)]
@@ -304,12 +305,12 @@ class Elite_Input(Input):
                         if cell_uni.get_u() == uni:
                             # loop over the surfaces of the cell
                             for v1, t1 in cell_uni.values:
-                                if t1 == "sur":
+                                if t1 == "sur" and v1 not in surfs_modified:
                                     if v1 not in surfs_checked:
                                         surfs_checked.add(v1)
                                         sur = modified_surfaces[str(v1)]
-                                        # check if the surfaces hould be translated
-                                        Elite_Input._check_planes(
+                                        # check if the surfaces would be translated
+                                        mod = Elite_Input._check_planes(
                                             sur,
                                             2,
                                             tol,
@@ -317,9 +318,24 @@ class Elite_Input(Input):
                                             boundary_angles,
                                             fill_trans,
                                         )
+                                        # protection against fatal errors
+                                        # sometimes there are random planes that coicide with the boundary
+                                        # these planes are not used in the problem, but fatal errors arise if they are not checked
+                                        if not mod:
+                                            mod = Elite_Input._check_planes(
+                                                sur,
+                                                2,
+                                                tol,
+                                                None,
+                                                boundary_angles,
+                                                None,
+                                            )
+                                        if mod:
+                                            surfs_modified.add(v1)
 
     @staticmethod
     def _check_planes(surf, bound_opt, tol, trans, boundary_angles, fill_trans):
+        modified = False
         if surf.stype in ["p", "px", "py", "pz"]:
             if surf.stype == "p":
                 p_coeffs = np.array(surf.scoefs[:3])
@@ -364,6 +380,8 @@ class Elite_Input(Input):
                         else:
                             ang = angle
                         Elite_Input._modify_boundary(surf, bound_opt, ang, l, tol)
+                        modified = True
+        return modified
 
     @staticmethod
     def _get_boundaries_angles(sectors):
