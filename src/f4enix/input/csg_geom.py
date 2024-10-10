@@ -20,12 +20,81 @@ and limitations under the Licence.
 
 import re
 import math
+from abc import ABC, abstractmethod
 
 from f4enix.input.auxiliary import _get_comment
+from numjuggler.parser import Card
 
 pat_space = re.compile(r"\s+")
 pat_geom = re.compile(r"\d+\s+[A-Z][A-Z]")
 pat_newline = re.compile(r"\s*\n")
+
+
+class SurfaceCard(Card):
+    def __init__(self, *args, **keyargs) -> None:
+        super().__init__(*args, **keyargs)
+        self.geom = self._parse_geom()
+
+    def offset(self, value: float) -> None:
+        """Offset the surface by a value in cm
+
+        Parameters
+        ----------
+        value : float
+            offset value in cm
+        """
+        self.geom.offset(value)
+
+    def card(self) -> str:
+        """override the numjuggler card() method to ensure that printing is
+        consistent with the eventually modified geometry
+
+        Returns
+        -------
+        str
+            MCNP CSG text description of the surface
+        """
+        return self.geom.to_text().strip("\n") + ("\n")
+
+    def _parse_geom(self) -> Surface:
+        if self.ctype != 4:
+            raise ValueError(f"Card {self.lines} is not a surface card")
+        for line in self.lines:
+            matched = pat_geom.match(line)
+            if matched is not None:
+                geom_symbol = matched.group().split()[1].upper()
+                if geom_symbol in ["TZ", "TY", "TX"]:
+                    geom = Torus.from_text(line)
+                elif geom_symbol in ["PZ", "PX", "PY"]:
+                    geom = Plane.from_text(line)
+                elif geom_symbol in ["CX", "CY", "CZ"]:
+                    self.geom = Cylinder.from_text(line)
+                elif self.geom in ["KZ", "KX", "KY"] in line:
+                    geom = Cone.from_text(line)
+                else:
+                    raise ValueError(
+                        f"Cell {self.lines} cannot be converted to Surface card"
+                    )
+                return geom
+        raise ValueError(f"Cell {self.lines} cannot be converted to Surface card")
+
+
+class Surface(ABC):
+    @abstractmethod
+    def offset(self, value: float) -> None:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def from_text(cls, text: str) -> Surface:
+        pass
+
+    def __repr__(self) -> str:
+        return self.to_text()
+
+    @abstractmethod
+    def to_text(self) -> str:
+        pass
 
 
 class Torus:
@@ -111,9 +180,6 @@ class Torus:
         return Torus(
             id_num, geom, origin, major_radius, minor_radius_A, minor_radius_B, comment
         )
-
-    def __repr__(self) -> str:
-        return self.to_text()
 
     def to_text(self) -> str:
         """print the CSG MCNP text format for the torus
@@ -212,9 +278,6 @@ class Cone:
         """print the CSG MCNP text format for the cone"""
         return f"{self.id_num} {self.geom} {self.vertex} {self.t_square} {self.inclination} {self.comment}"
 
-    def __repr__(self) -> str:
-        return self.to_text()
-
     def offset(self, value: float) -> None:
         """Create an offset of the cone surface. This means varying the cone vertex
         position on the axis
@@ -284,9 +347,6 @@ class Cylinder:
             MCNP CSG text description of the cylinder
         """
         return f"{self.id_num} {self.geom} {self.radius} {self.comment}"
-
-    def __repr__(self) -> str:
-        return self.to_text()
 
     def offset(self, value: float) -> None:
         """Create an offset of the cylinder surface. This means varying the radius
@@ -363,9 +423,6 @@ class Plane:
     def to_text(self) -> str:
         """text representation of the plane in MCNP CSG format"""
         return f"{self.id_num} {self.geom} {self.quota} {self.comment}"
-
-    def __repr__(self) -> str:
-        return self.to_text()
 
     def offset(self, value: float) -> None:
         """Create an offset of the plane surface. This means varying the quota

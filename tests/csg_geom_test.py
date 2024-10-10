@@ -28,7 +28,21 @@ C cones for mid-section
 106 KZ 330.17922989446475 4.777283063576085 -1 $ (no offset)
 """
 
-from f4enix.input.csg_geom import Torus, Cone, Plane, Cylinder
+from f4enix.input.csg_geom import Torus, Cone, Plane, Cylinder, SurfaceCard
+
+
+class TestSurfaceCard:
+    def test_offset(self):
+        lines = ["23 TZ 0 0 15.2 688.45 204.4 204.4 $ eq3 (positive offset)"]
+        surf_card = SurfaceCard(lines, 4, 1, debug=None)
+        surf_card.offset(10)
+        assert surf_card.geom.minor_radius_A == 214.4
+
+    def test_card(self):
+        lines = ["C a comment that will be lost\n", "1 PZ 0\n"]
+        surf_card = SurfaceCard(lines, 4, 1, debug=None)
+        surf_card.offset(10)
+        assert surf_card.card() == "1 PZ 10.0 \n"
 
 
 class TestTorus:
