@@ -40,14 +40,19 @@ def get_comments(card: Card) -> str:
     comments = ""
     for line in card.lines:
         # check if either dollar or c comments are matched and store them
-        c_comm = PAT_COMMENT_TEXT.match(line)
-        d_comm = PAT_DOLLAR_COMMENT.search(line)
-
-        for match in [c_comm, d_comm]:
-            if match is not None:
-                comments = comments + match.group()
+        comments += _get_comment(line)
 
     return comments
+
+
+def _get_comment(line: str) -> str:
+    c_comm = PAT_COMMENT_TEXT.match(line)
+    d_comm = PAT_DOLLAR_COMMENT.search(line)
+
+    for match in [c_comm, d_comm]:
+        if match is not None:
+            return match.group()
+    return ""
 
 
 def _detect_decoding_errors_line(l, _s=_surrogates.finditer):  # pragma: no cover

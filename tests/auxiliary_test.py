@@ -7,7 +7,13 @@ from f4enix.input.auxiliary import get_comments
 
 @pytest.mark.parametrize(
     ["lines", "comment"],
-    [[["C dasd\n", "M10 8016 1 $inline comment\n"], "C dasd\n$inline comment\n"]],
+    [
+        [["C dasd\n", "M10 8016 1 $inline comment\n"], "C dasd\n$inline comment\n"],
+        [
+            ["1 TZ 0.0 0.0 $ inner torus (positive offset)\n"],
+            "$ inner torus (positive offset)\n",
+        ],
+    ],
 )
 def test_get_comments(lines, comment):
     card = Card(lines, 5, 10)
