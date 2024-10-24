@@ -1137,36 +1137,6 @@ class Input:
                     cell.set_d(new_density)
 
     @staticmethod
-    def cell_union(
-        cell_1: parser.Card,
-        cell_2: parser.Card,
-        inplace=True,
-    ) -> None:
-        """Sets a material (and density) to a void cell.
-
-        Parameters
-        ----------
-        cell : parser.Card
-            cell to be modified.
-        new_mat_id : int
-            id of the new material.
-        new_density : str
-            new value for the density (including sign).
-        """
-
-        new_cell = Input._add_symbol_to_cell_input(
-            cell_1,
-            " : (" + cell_2.get_geom().replace("\n", " ") + ")",
-            inplace=True,
-            parentheses=True,
-        )
-        new_cell = parser.Card(
-            new_cell.card(wrap=True).splitlines(keepends=True), 3, new_cell.pos
-        )
-        new_cell.get_values()
-        return new_cell
-
-    @staticmethod
     def add_material_to_void_cell(
         cell: parser.Card,
         new_mat_id: int,
@@ -1301,7 +1271,7 @@ class Input:
             )
 
         new_cell = Input._add_symbol_to_cell_input(
-            cell, template_addition, inplace=inplace, new_cell_num=new_cell_num
+            cell, template_addition, inplace=inplace
         )
 
         for k in range(len(new_cell.values) - 1, -1, -1):
@@ -1309,6 +1279,10 @@ class Input:
                 break
 
         new_cell.values.insert(k + 1, (abs(add_surface), "sur"))
+
+        if new_cell_num is not None:
+            new_cell.name = new_cell_num
+            new_cell._set_value_by_type("cel", new_cell_num)
 
         return new_cell
 
@@ -1334,7 +1308,7 @@ class Input:
         """
         template_addition = "#{:<" + str(len(str(hash_id)) - 1) + "} "
         new_cell = Input._add_symbol_to_cell_input(
-            cell, template_addition, inplace=inplace, new_cell_num=new_cell_num
+            cell, template_addition, inplace=inplace
         )
         # add the hash cell to the cell values
         for k in range(len(new_cell.values) - 1, -1, -1):
@@ -1342,6 +1316,11 @@ class Input:
                 break
 
         new_cell.values.insert(k + 1, (hash_id, "cel"))
+
+        # renumber the cell if requested
+        if new_cell_num is not None:
+            new_cell.name = new_cell_num
+            new_cell._set_value_by_type("cel", new_cell_num)
 
         return new_cell
 
@@ -1366,7 +1345,6 @@ class Input:
         add_symbol: str,
         inplace: bool = True,
         parentheses: bool = True,
-        new_cell_num: int = None,
     ) -> parser.Card:
 
         if inplace:
@@ -1378,16 +1356,10 @@ class Input:
         first_row = new_cell.input[0].split()
 
         if parentheses:
-            if len(first_row) >= 4:
-                if new_cell.get_m() == 0:
-                    first_row[2] = "(" + first_row[2]
-                else:
-                    first_row[3] = "(" + first_row[3]
+            if new_cell.get_m() == 0:
+                first_row[2] = "(" + first_row[2]
             else:
-                if new_cell.get_m() == 0:
-                    first_row[1] = first_row[1] + " ("
-                else:
-                    first_row[2] = first_row[2] + " ("
+                first_row[3] = "(" + first_row[3]
 
         new_cell.input[0] = " ".join(first_row)
 
@@ -1412,10 +1384,6 @@ class Input:
                 if new_cell.input[i][:5] != "     " and i != 0:
                     new_cell.input[i] = "     " + new_cell.input[i]
                 break
-
-        if new_cell_num is not None:
-            new_cell.name = new_cell_num
-            new_cell._set_value_by_type("cel", new_cell_num)
 
         return new_cell
 

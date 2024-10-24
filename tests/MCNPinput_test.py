@@ -422,13 +422,6 @@ class TestInput:
         assert newinp.cells["299"].get_m() == 10
         assert newinp.cells["1"].get_m() == 0
 
-    def test_union_cell(self):
-        with as_file(resources_inp.joinpath("jt60.i")) as inp_file:
-            newinp = Input.from_input(inp_file)
-        new = Input.cell_union(newinp.cells["2"], newinp.cells["3"], True)
-
-        print(new.card(wrap=True))
-
     def test_add_surface(self):
         newinput = deepcopy(self.testInput)
         sur = 180
